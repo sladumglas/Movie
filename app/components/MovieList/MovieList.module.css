@@ -1,0 +1,11 @@
+.movieList {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 36px;
+}
+
+@media (max-width: 900px) {
+  .movieList {
+    grid-template-columns: 1fr;
+  }
+}
