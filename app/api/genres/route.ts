@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 const API_URL = 'https://api.themoviedb.org/3';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const apiKey = process.env.TMDB_API_KEY;
 
   if (!apiKey) {
@@ -12,15 +12,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const searchParams = request.nextUrl.searchParams;
-  const query = searchParams.get('query') || 'return';
-  const page = searchParams.get('page') || '1';
-
   try {
     const response = await fetch(
-      `${API_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(
-        query,
-      )}&language=en-US&page=${page}`,
+      `${API_URL}/genre/movie/list?api_key=${apiKey}&language=en-US`,
       {
         cache: 'no-store',
       },
@@ -28,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: 'Failed to fetch movies' },
+        { error: 'Failed to load genres' },
         { status: response.status },
       );
     }
@@ -38,9 +32,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data);
   } catch {
     return NextResponse.json(
-      {
-        error: 'Failed to load movies. Please check your internet connection.',
-      },
+      { error: 'Failed to load genres' },
       { status: 500 },
     );
   }

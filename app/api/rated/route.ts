@@ -13,14 +13,19 @@ export async function GET(request: NextRequest) {
   }
 
   const searchParams = request.nextUrl.searchParams;
-  const query = searchParams.get('query') || 'return';
+  const guestSessionId = searchParams.get('guestSessionId');
   const page = searchParams.get('page') || '1';
+
+  if (!guestSessionId) {
+    return NextResponse.json(
+      { error: 'guestSessionId is required' },
+      { status: 400 },
+    );
+  }
 
   try {
     const response = await fetch(
-      `${API_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(
-        query,
-      )}&language=en-US&page=${page}`,
+      `${API_URL}/guest_session/${guestSessionId}/rated/movies?api_key=${apiKey}&language=en-US&page=${page}&sort_by=created_at.desc`,
       {
         cache: 'no-store',
       },
@@ -28,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: 'Failed to fetch movies' },
+        { error: 'Failed to load rated movies' },
         { status: response.status },
       );
     }
@@ -38,9 +43,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data);
   } catch {
     return NextResponse.json(
-      {
-        error: 'Failed to load movies. Please check your internet connection.',
-      },
+      { error: 'Failed to load rated movies' },
       { status: 500 },
     );
   }

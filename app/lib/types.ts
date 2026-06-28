@@ -6,6 +6,7 @@ export type Movie = {
   poster_path: string | null;
   vote_average: number;
   genre_ids: number[];
+  rating?: number;
 };
 
 export type MoviesResponse = {
@@ -13,4 +14,19 @@ export type MoviesResponse = {
   results: Movie[];
   total_pages: number;
   total_results: number;
+};
+
+export type Genre = {
+  id: number;
+  name: string;
+};
+
+export type GenresResponse = {
+  genres: Genre[];
+};
+
+export type GuestSessionResponse = {
+  success: boolean;
+  guest_session_id: string;
+  expires_at: string;
 };

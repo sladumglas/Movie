@@ -1,17 +1,37 @@
+'use client';
+
 import Image from 'next/image';
 import { format } from 'date-fns';
-import { Card, Rate, Tag } from 'antd';
-import { Movie } from '@/app/lib/types';
+import { Rate, Tag } from 'antd';
+import { Genre, Movie } from '@/app/lib/types';
 import { cutText } from '@/app/lib/utils';
+import { useGenres } from '../../context/GenresContext';
 import styles from './MovieCard.module.css';
 
 type MovieCardProps = {
   movie: Movie;
+  onRate?: (movieId: number, rating: number) => void;
 };
 
-const PLACEHOLDER_GENRES = ['Action', 'Drama'];
+function getRatingColor(rating: number) {
+  if (rating < 3) {
+    return '#E90000';
+  }
 
-export function MovieCard({ movie }: MovieCardProps) {
+  if (rating < 5) {
+    return '#E97E00';
+  }
+
+  if (rating < 7) {
+    return '#E9D100';
+  }
+
+  return '#66E900';
+}
+
+export function MovieCard({ movie, onRate }: MovieCardProps) {
+  const genres = useGenres();
+
   const imageUrl = movie.poster_path
     ? `https://image.tmdb.org/t/p/w300${movie.poster_path}`
     : '/placeholder.png';
@@ -20,8 +40,18 @@ export function MovieCard({ movie }: MovieCardProps) {
     ? format(new Date(movie.release_date), 'MMMM d, yyyy')
     : 'Unknown date';
 
+  const movieGenres = movie.genre_ids
+    .map((genreId) => genres.find((genre) => genre.id === genreId))
+    .filter((genre): genre is Genre => genre !== undefined);
+
+  function handleRate(value: number) {
+    if (onRate) {
+      onRate(movie.id, value);
+    }
+  }
+
   return (
-    <Card className={styles.card} styles={{ body: { padding: 0 } }}>
+    <article className={styles.card}>
       <div className={styles.content}>
         <div className={styles.posterWrapper}>
           <Image
@@ -38,7 +68,10 @@ export function MovieCard({ movie }: MovieCardProps) {
           <div className={styles.header}>
             <h2 className={styles.title}>{movie.title}</h2>
 
-            <div className={styles.ratingCircle}>
+            <div
+              className={styles.ratingCircle}
+              style={{ borderColor: getRatingColor(movie.vote_average) }}
+            >
               {movie.vote_average.toFixed(1)}
             </div>
           </div>
@@ -46,24 +79,24 @@ export function MovieCard({ movie }: MovieCardProps) {
           <span className={styles.date}>{formattedDate}</span>
 
           <div className={styles.genres}>
-            {PLACEHOLDER_GENRES.map((genre) => (
-              <Tag key={genre}>{genre}</Tag>
+            {movieGenres.map((genre) => (
+              <Tag key={genre.id}>{genre.name}</Tag>
             ))}
           </div>
 
           <p className={styles.description}>
-            {cutText(movie.overview || 'No description', 60)}
+            {cutText(movie.overview || 'No description', 100)}
           </p>
 
           <Rate
             allowHalf
-            disabled
             count={10}
-            value={movie.vote_average}
+            value={movie.rating || 0}
+            onChange={handleRate}
             className={styles.stars}
           />
         </div>
       </div>
-    </Card>
+    </article>
   );
 }
