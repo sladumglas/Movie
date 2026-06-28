@@ -30,6 +30,7 @@ export function MovieCard({ movie }: MovieCardProps) {
             width={183}
             height={281}
             className={styles.poster}
+            loading="eager"
           />
         </div>
 

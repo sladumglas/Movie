@@ -2,6 +2,8 @@ import { Alert, Tabs } from 'antd';
 import { getMovies } from './lib/api';
 import { MovieList } from './components/MovieList/MovieList';
 
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const data = await getMovies();
 

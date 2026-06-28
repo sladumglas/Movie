@@ -22,6 +22,21 @@ body {
   margin-bottom: 20px;
 }
 
+.loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 500px;
+}
+
+.errorBox {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 600px;
+  margin: 120px auto 0;
+}
+
 @media (max-width: 768px) {
   .page {
     padding: 16px;
