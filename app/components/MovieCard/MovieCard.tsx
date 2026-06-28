@@ -52,7 +52,7 @@ export function MovieCard({ movie }: MovieCardProps) {
           </div>
 
           <p className={styles.description}>
-            {cutText(movie.overview || 'No description', 160)}
+            {cutText(movie.overview || 'No description', 60)}
           </p>
 
           <Rate

@@ -1,12 +1,9 @@
-import { Alert, Tabs } from 'antd';
-import { getMovies } from './lib/api';
-import { MovieList } from './components/MovieList/MovieList';
+import { Tabs } from 'antd';
+import { MovieSearch } from './components/MovieSearch/MovieSearch';
 
 export const dynamic = 'force-dynamic';
 
-export default async function Home() {
-  const data = await getMovies();
-
+export default function Home() {
   return (
     <main className="page">
       <div className="tabs">
@@ -25,11 +22,7 @@ export default async function Home() {
         />
       </div>
 
-      {data.results.length > 0 ? (
-        <MovieList movies={data.results} />
-      ) : (
-        <Alert message="Movies not found" type="info" />
-      )}
+      <MovieSearch />
     </main>
   );
 }

@@ -1,7 +1,7 @@
 .movieList {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 36px;
+  gap: 36px 32px;
 }
 
 @media (max-width: 900px) {
