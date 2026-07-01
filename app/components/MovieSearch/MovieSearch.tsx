@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Alert, Empty, Input, Pagination, Spin, Tabs } from 'antd';
 import debounce from 'lodash/debounce';
@@ -52,6 +52,8 @@ export function MovieSearch() {
   const [isLoading, setIsLoading] = useState(true);
   const [ratingLoadingIds, setRatingLoadingIds] = useState<number[]>([]);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const ratingLoadingIdsRef = useRef<number[]>([]);
 
   const updateUrl = useCallback(
     (newQuery: string, newPage: number, newTab: string) => {
@@ -239,7 +241,20 @@ export function MovieSearch() {
   }
 
   async function handleRate(movieId: number, rating: number) {
-    setRatingLoadingIds((currentIds) => [...currentIds, movieId]);
+    if (ratingLoadingIdsRef.current.includes(movieId)) {
+      return;
+    }
+
+    ratingLoadingIdsRef.current = [...ratingLoadingIdsRef.current, movieId];
+
+    setRatingLoadingIds((currentIds) => {
+      if (currentIds.includes(movieId)) {
+        return currentIds;
+      }
+
+      return [...currentIds, movieId];
+    });
+
     setErrorMessage('');
 
     try {
@@ -280,6 +295,10 @@ export function MovieSearch() {
     } catch {
       setErrorMessage('Failed to rate movie. Please try again.');
     } finally {
+      ratingLoadingIdsRef.current = ratingLoadingIdsRef.current.filter(
+        (id) => id !== movieId,
+      );
+
       setRatingLoadingIds((currentIds) =>
         currentIds.filter((id) => id !== movieId),
       );
@@ -317,7 +336,7 @@ export function MovieSearch() {
   const searchContent = (
     <>
       <Input
-        placeholder="Введите название"
+        placeholder="Введите название фильма"
         value={inputValue}
         onChange={handleInputChange}
         className={styles.searchInput}
