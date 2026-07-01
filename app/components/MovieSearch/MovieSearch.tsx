@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Alert, Empty, Input, Pagination, Spin, Tabs } from 'antd';
+import { Alert, Empty, Input, Modal, Pagination, Spin, Tabs } from 'antd';
 import debounce from 'lodash/debounce';
 import { GuestSessionResponse, Movie, MoviesResponse } from '@/app/lib/types';
 import { MovieList } from '../MovieList/MovieList';
@@ -292,6 +292,12 @@ export function MovieSearch() {
           movie.id === movieId ? { ...movie, rating } : movie,
         ),
       );
+
+      Modal.success({
+        title: 'Рейтинг изменён',
+        content: 'Ваша оценка фильма успешно сохранена.',
+        okText: 'Ок',
+      });
     } catch {
       setErrorMessage('Failed to rate movie. Please try again.');
     } finally {
