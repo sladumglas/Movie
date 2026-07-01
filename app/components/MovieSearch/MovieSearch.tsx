@@ -1,33 +1,80 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Alert, Empty, Input, Pagination, Spin, Tabs } from 'antd';
 import debounce from 'lodash/debounce';
-import { Movie, MoviesResponse } from '@/app/lib/types';
+import { GuestSessionResponse, Movie, MoviesResponse } from '@/app/lib/types';
 import { MovieList } from '../MovieList/MovieList';
 import styles from './MovieSearch.module.css';
 
 const DEFAULT_QUERY = 'return';
 
+function getInitialSearchParams() {
+  if (typeof window === 'undefined') {
+    return {
+      query: DEFAULT_QUERY,
+      inputValue: '',
+      page: 1,
+      tab: 'search',
+    };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const queryFromUrl = params.get('query') || '';
+  const pageFromUrl = Number(params.get('page')) || 1;
+  const tabFromUrl = params.get('tab') || 'search';
+
+  return {
+    query: queryFromUrl || DEFAULT_QUERY,
+    inputValue: queryFromUrl,
+    page: pageFromUrl,
+    tab: tabFromUrl,
+  };
+}
+
 export function MovieSearch() {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const initialParams = getInitialSearchParams();
+
   const [movies, setMovies] = useState<Movie[]>([]);
   const [ratedMovies, setRatedMovies] = useState<Movie[]>([]);
-  const [query, setQuery] = useState(DEFAULT_QUERY);
-  const [inputValue, setInputValue] = useState(DEFAULT_QUERY);
-  const [page, setPage] = useState(1);
-  const [ratedPage, setRatedPage] = useState(1);
+  const [query, setQuery] = useState(initialParams.query);
+  const [inputValue, setInputValue] = useState(initialParams.inputValue);
+  const [page, setPage] = useState(initialParams.page);
+  const [ratedPage, setRatedPage] = useState(initialParams.page);
   const [totalResults, setTotalResults] = useState(0);
   const [ratedTotalResults, setRatedTotalResults] = useState(0);
-  const [activeTab, setActiveTab] = useState('search');
-  const [guestSessionId] = useState(() => {
-    if (typeof window === 'undefined') {
-      return '';
-    }
-
-    return localStorage.getItem('guestSessionId') || '';
-  });
+  const [userRatings, setUserRatings] = useState<Record<number, number>>({});
+  const [activeTab, setActiveTab] = useState(initialParams.tab);
   const [isLoading, setIsLoading] = useState(true);
+  const [ratingLoadingIds, setRatingLoadingIds] = useState<number[]>([]);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const updateUrl = useCallback(
+    (newQuery: string, newPage: number, newTab: string) => {
+      const params = new URLSearchParams();
+
+      if (newQuery && newQuery !== DEFAULT_QUERY) {
+        params.set('query', newQuery);
+      }
+
+      if (newPage > 1) {
+        params.set('page', String(newPage));
+      }
+
+      if (newTab !== 'search') {
+        params.set('tab', newTab);
+      }
+
+      const queryString = params.toString();
+
+      router.replace(queryString ? `${pathname}?${queryString}` : pathname);
+    },
+    [pathname, router],
+  );
 
   const debouncedSearch = useMemo(
     () =>
@@ -38,8 +85,9 @@ export function MovieSearch() {
         setErrorMessage('');
         setQuery(newQuery);
         setPage(1);
+        updateUrl(newQuery, 1, activeTab);
       }, 600),
-    [],
+    [activeTab, updateUrl],
   );
 
   useEffect(() => {
@@ -61,7 +109,12 @@ export function MovieSearch() {
           return;
         }
 
-        setMovies(data.results);
+        const moviesWithRatings = data.results.map((movie) => ({
+          ...movie,
+          rating: userRatings[movie.id] || movie.rating || 0,
+        }));
+
+        setMovies(moviesWithRatings);
         setTotalResults(data.total_results);
       } catch {
         if (!isCurrent) {
@@ -87,12 +140,14 @@ export function MovieSearch() {
     return () => {
       isCurrent = false;
     };
-  }, [query, page, activeTab]);
+  }, [query, page, activeTab, userRatings]);
 
   useEffect(() => {
     let isCurrent = true;
 
     async function loadRatedMovies() {
+      const guestSessionId = localStorage.getItem('guestSessionId');
+
       if (!guestSessionId) {
         setRatedMovies([]);
         setRatedTotalResults(0);
@@ -117,6 +172,22 @@ export function MovieSearch() {
 
         setRatedMovies(data.results);
         setRatedTotalResults(data.total_results);
+
+        const ratingsFromRated = data.results.reduce<Record<number, number>>(
+          (acc, movie) => {
+            if (movie.rating) {
+              acc[movie.id] = movie.rating;
+            }
+
+            return acc;
+          },
+          {},
+        );
+
+        setUserRatings((currentRatings) => ({
+          ...currentRatings,
+          ...ratingsFromRated,
+        }));
       } catch {
         if (!isCurrent) {
           return;
@@ -139,7 +210,7 @@ export function MovieSearch() {
     return () => {
       isCurrent = false;
     };
-  }, [activeTab, ratedPage, guestSessionId]);
+  }, [activeTab, ratedPage]);
 
   useEffect(() => {
     return () => {
@@ -147,16 +218,33 @@ export function MovieSearch() {
     };
   }, [debouncedSearch]);
 
-  async function handleRate(movieId: number, rating: number) {
-    const currentGuestSessionId =
-      guestSessionId || localStorage.getItem('guestSessionId') || '';
+  async function getGuestSessionId() {
+    const savedGuestSessionId = localStorage.getItem('guestSessionId');
 
-    if (!currentGuestSessionId) {
-      setErrorMessage('Guest session is not ready yet. Try again later.');
-      return;
+    if (savedGuestSessionId) {
+      return savedGuestSessionId;
     }
 
+    const response = await fetch('/api/guest-session');
+
+    if (!response.ok) {
+      throw new Error('Failed to create guest session');
+    }
+
+    const data: GuestSessionResponse = await response.json();
+
+    localStorage.setItem('guestSessionId', data.guest_session_id);
+
+    return data.guest_session_id;
+  }
+
+  async function handleRate(movieId: number, rating: number) {
+    setRatingLoadingIds((currentIds) => [...currentIds, movieId]);
+    setErrorMessage('');
+
     try {
+      const guestSessionId = await getGuestSessionId();
+
       const response = await fetch('/api/rate', {
         method: 'POST',
         headers: {
@@ -165,13 +253,18 @@ export function MovieSearch() {
         body: JSON.stringify({
           movieId,
           rating,
-          guestSessionId: currentGuestSessionId,
+          guestSessionId,
         }),
       });
 
       if (!response.ok) {
         throw new Error('Failed to rate movie');
       }
+
+      setUserRatings((currentRatings) => ({
+        ...currentRatings,
+        [movieId]: rating,
+      }));
 
       setMovies((currentMovies) =>
         currentMovies.map((movie) =>
@@ -185,7 +278,11 @@ export function MovieSearch() {
         ),
       );
     } catch {
-      setErrorMessage('Failed to rate movie.');
+      setErrorMessage('Failed to rate movie. Please try again.');
+    } finally {
+      setRatingLoadingIds((currentIds) =>
+        currentIds.filter((id) => id !== movieId),
+      );
     }
   }
 
@@ -200,24 +297,27 @@ export function MovieSearch() {
     setIsLoading(true);
     setErrorMessage('');
     setPage(newPage);
+    updateUrl(query, newPage, activeTab);
   }
 
   function handleRatedPageChange(newPage: number) {
     setIsLoading(true);
     setErrorMessage('');
     setRatedPage(newPage);
+    updateUrl(query, newPage, activeTab);
   }
 
   function handleTabChange(key: string) {
     setIsLoading(true);
     setErrorMessage('');
     setActiveTab(key);
+    updateUrl(query, key === 'rated' ? ratedPage : page, key);
   }
 
   const searchContent = (
     <>
       <Input
-        placeholder="Type to search..."
+        placeholder="Введите название"
         value={inputValue}
         onChange={handleInputChange}
         className={styles.searchInput}
@@ -226,7 +326,11 @@ export function MovieSearch() {
       {!isLoading && !errorMessage && movies.length > 0 && (
         <>
           <div className={styles.results}>
-            <MovieList movies={movies} onRate={handleRate} />
+            <MovieList
+              movies={movies}
+              onRate={handleRate}
+              ratingLoadingIds={ratingLoadingIds}
+            />
           </div>
 
           <div className={styles.pagination}>
@@ -252,7 +356,11 @@ export function MovieSearch() {
       {!isLoading && !errorMessage && ratedMovies.length > 0 && (
         <>
           <div className={styles.results}>
-            <MovieList movies={ratedMovies} onRate={handleRate} />
+            <MovieList
+              movies={ratedMovies}
+              onRate={handleRate}
+              ratingLoadingIds={ratingLoadingIds}
+            />
           </div>
 
           <div className={styles.pagination}>

@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { format } from 'date-fns';
-import { Rate, Tag } from 'antd';
+import { Rate, Spin, Tag } from 'antd';
 import { Genre, Movie } from '@/app/lib/types';
 import { cutText } from '@/app/lib/utils';
 import { useGenres } from '../../context/GenresContext';
@@ -11,6 +11,7 @@ import styles from './MovieCard.module.css';
 type MovieCardProps = {
   movie: Movie;
   onRate?: (movieId: number, rating: number) => void;
+  isRatingLoading?: boolean;
 };
 
 function getRatingColor(rating: number) {
@@ -29,7 +30,11 @@ function getRatingColor(rating: number) {
   return '#66E900';
 }
 
-export function MovieCard({ movie, onRate }: MovieCardProps) {
+export function MovieCard({
+  movie,
+  onRate,
+  isRatingLoading = false,
+}: MovieCardProps) {
   const genres = useGenres();
 
   const imageUrl = movie.poster_path
@@ -88,13 +93,18 @@ export function MovieCard({ movie, onRate }: MovieCardProps) {
             {cutText(movie.overview || 'No description', 100)}
           </p>
 
-          <Rate
-            allowHalf
-            count={10}
-            value={movie.rating || 0}
-            onChange={handleRate}
-            className={styles.stars}
-          />
+          <div className={styles.rateWrapper}>
+            <Rate
+              allowHalf
+              count={10}
+              value={movie.rating || 0}
+              onChange={handleRate}
+              disabled={isRatingLoading}
+              className={styles.stars}
+            />
+
+            {isRatingLoading && <Spin size="small" />}
+          </div>
         </div>
       </div>
     </article>

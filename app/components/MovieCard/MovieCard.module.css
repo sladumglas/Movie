@@ -77,7 +77,6 @@
 }
 
 .stars {
-  margin-top: auto;
   font-size: 11px;
   white-space: nowrap;
   line-height: 1;
@@ -85,6 +84,13 @@
 
 .stars :global(.ant-rate-star) {
   margin-inline-end: 2px;
+}
+
+.rateWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
 }
 
 @media (max-width: 600px) {
