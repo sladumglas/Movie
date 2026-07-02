@@ -31,6 +31,15 @@ export async function GET(request: NextRequest) {
       },
     );
 
+    if (response.status === 404) {
+      return NextResponse.json({
+        page: 1,
+        results: [],
+        total_pages: 0,
+        total_results: 0,
+      });
+    }
+
     if (!response.ok) {
       return NextResponse.json(
         { error: 'Failed to load rated movies' },

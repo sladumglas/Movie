@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Alert, Empty, Input, Modal, Pagination, Spin, Tabs } from 'antd';
 import debounce from 'lodash/debounce';
 import { GuestSessionResponse, Movie, MoviesResponse } from '@/app/lib/types';
@@ -10,45 +10,25 @@ import styles from './MovieSearch.module.css';
 
 const DEFAULT_QUERY = 'return';
 
-function getInitialSearchParams() {
-  if (typeof window === 'undefined') {
-    return {
-      query: DEFAULT_QUERY,
-      inputValue: '',
-      page: 1,
-      tab: 'search',
-    };
-  }
-
-  const params = new URLSearchParams(window.location.search);
-  const queryFromUrl = params.get('query') || '';
-  const pageFromUrl = Number(params.get('page')) || 1;
-  const tabFromUrl = params.get('tab') || 'search';
-
-  return {
-    query: queryFromUrl || DEFAULT_QUERY,
-    inputValue: queryFromUrl,
-    page: pageFromUrl,
-    tab: tabFromUrl,
-  };
-}
-
 export function MovieSearch() {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const initialParams = getInitialSearchParams();
+  const queryFromUrl = searchParams.get('query') || '';
+  const pageFromUrl = Number(searchParams.get('page')) || 1;
+  const tabFromUrl = searchParams.get('tab') || 'search';
 
   const [movies, setMovies] = useState<Movie[]>([]);
   const [ratedMovies, setRatedMovies] = useState<Movie[]>([]);
-  const [query, setQuery] = useState(initialParams.query);
-  const [inputValue, setInputValue] = useState(initialParams.inputValue);
-  const [page, setPage] = useState(initialParams.page);
-  const [ratedPage, setRatedPage] = useState(initialParams.page);
+  const [query, setQuery] = useState(queryFromUrl || DEFAULT_QUERY);
+  const [inputValue, setInputValue] = useState(queryFromUrl);
+  const [page, setPage] = useState(pageFromUrl);
+  const [ratedPage, setRatedPage] = useState(pageFromUrl);
   const [totalResults, setTotalResults] = useState(0);
   const [ratedTotalResults, setRatedTotalResults] = useState(0);
   const [userRatings, setUserRatings] = useState<Record<number, number>>({});
-  const [activeTab, setActiveTab] = useState(initialParams.tab);
+  const [activeTab, setActiveTab] = useState(tabFromUrl);
   const [isLoading, setIsLoading] = useState(true);
   const [ratingLoadingIds, setRatingLoadingIds] = useState<number[]>([]);
   const [errorMessage, setErrorMessage] = useState('');
@@ -91,6 +71,26 @@ export function MovieSearch() {
       }, 600),
     [activeTab, updateUrl],
   );
+
+  async function getGuestSessionId() {
+    const savedGuestSessionId = localStorage.getItem('guestSessionId');
+
+    if (savedGuestSessionId) {
+      return savedGuestSessionId;
+    }
+
+    const response = await fetch('/api/guest-session');
+
+    if (!response.ok) {
+      throw new Error('Failed to create guest session');
+    }
+
+    const data: GuestSessionResponse = await response.json();
+
+    localStorage.setItem('guestSessionId', data.guest_session_id);
+
+    return data.guest_session_id;
+  }
 
   useEffect(() => {
     let isCurrent = true;
@@ -148,16 +148,9 @@ export function MovieSearch() {
     let isCurrent = true;
 
     async function loadRatedMovies() {
-      const guestSessionId = localStorage.getItem('guestSessionId');
-
-      if (!guestSessionId) {
-        setRatedMovies([]);
-        setRatedTotalResults(0);
-        setIsLoading(false);
-        return;
-      }
-
       try {
+        const guestSessionId = await getGuestSessionId();
+
         const response = await fetch(
           `/api/rated?guestSessionId=${guestSessionId}&page=${ratedPage}`,
         );
@@ -197,7 +190,7 @@ export function MovieSearch() {
 
         setRatedMovies([]);
         setRatedTotalResults(0);
-        setErrorMessage('Failed to load rated movies.');
+        setErrorMessage('Failed to load rated movies. Please try again.');
       } finally {
         if (isCurrent) {
           setIsLoading(false);
@@ -219,26 +212,6 @@ export function MovieSearch() {
       debouncedSearch.cancel();
     };
   }, [debouncedSearch]);
-
-  async function getGuestSessionId() {
-    const savedGuestSessionId = localStorage.getItem('guestSessionId');
-
-    if (savedGuestSessionId) {
-      return savedGuestSessionId;
-    }
-
-    const response = await fetch('/api/guest-session');
-
-    if (!response.ok) {
-      throw new Error('Failed to create guest session');
-    }
-
-    const data: GuestSessionResponse = await response.json();
-
-    localStorage.setItem('guestSessionId', data.guest_session_id);
-
-    return data.guest_session_id;
-  }
 
   async function handleRate(movieId: number, rating: number) {
     if (ratingLoadingIdsRef.current.includes(movieId)) {
